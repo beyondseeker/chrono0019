@@ -39,7 +39,11 @@ class MainActivity : AppCompatActivity() {
     private fun save(bitmap: Bitmap) {
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap, "Pictures/Minimo")
-            else -> saveOnApi28OrOlder(bitmap = bitmap, relativePath = "chrono0019")
+            else -> saveOnApi28OrOlder(
+                bitmap = bitmap,
+                relativePath = "chrono0019",
+                doOnError = Runnable { Toast.makeText(this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT).show() }
+            )
         }
     }
 
@@ -49,7 +53,12 @@ class MainActivity : AppCompatActivity() {
         compressFormat: CompressFormat = CompressFormat.PNG,
         quality: Int = 100,
         type: String = DIRECTORY_PICTURES,
-        relativePath: String? = null
+        relativePath: String? = null,
+        // () -> Unit にしたいのだが、PermissionDispatcher のバグがあるためワークアラウンドをしている。
+        // https://github.com/permissions-dispatcher/PermissionsDispatcher/issues/503
+        doOnSuccess: Runnable = Runnable { },
+        doOnError: Runnable = Runnable { },
+        doOnEvent: Runnable = Runnable { }
     ) {
         assertApi28OrOlder()
 
@@ -64,19 +73,25 @@ class MainActivity : AppCompatActivity() {
         val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
 
         // FIXME: これより上は一次精査完了 -----------------------------------------------------------------------
+        // FIXME: IOは非同期で処理して結果はMainThreadで返す必要がある。
         if (item == null) {
-            // FIXME: lambda 受け取って失敗時の処理やりましょう。
-            //        細かい原因を解析してもしょうがないので、単純にエラー時という一種類だけ対応すればいいと思われ。
-            Toast.makeText(this, "item is null", Toast.LENGTH_SHORT).show()
+            doOnEvent.run()
+            doOnError.run()
             return
         }
 
-        // FIXME: lambda 受け取って失敗時の処理やりましょう。
-        //        細かい原因を解析してもしょうがないので、単純にエラー時という一種類だけ対応すればいいと思われ。
-        FileOutputStream(file).use { os ->
-            bitmap.compress(compressFormat, quality, os)
-            os.flush()
+        try {
+            FileOutputStream(file).use { os ->
+                bitmap.compress(compressFormat, quality, os)
+                os.flush()
+            }
+        } catch (e: IOException) {
+            doOnEvent.run()
+            doOnError.run()
         }
+
+        doOnEvent.run()
+        doOnSuccess.run()
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
