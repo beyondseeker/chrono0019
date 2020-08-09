@@ -40,33 +40,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun save(bitmap: Bitmap) {
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveAfterAndroidQ(bitmap)
-            else -> saveBeforeAndroidQWithPermissionCheck(bitmap)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap)
+            else -> saveOnApi28OrOlder(bitmap)
         }
     }
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    fun saveBeforeAndroidQ(bitmap: Bitmap) {
+    fun saveOnApi28OrOlder(bitmap: Bitmap) {
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            error("This function is meant to be used by Android P or older.")
+        }
+
         val file = createImageFileForMinimo(this)!!
 
         // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "testdayo2.png")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            // API 29 から deprecated
+            // API 29 から deprecated。このメソッドは API 28 以前専用なので OK。
             // https://developer.android.com/reference/kotlin/android/provider/MediaStore.MediaColumns#data
             put(MediaStore.Images.Media.DATA, file.absolutePath)
         }
 
         val resolver = contentResolver
 
-        // FIXME: 挿入対象の集合。
         val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-        // FIXME: Andoid 8 だと以下のように死ぬ。
-        //        java.lang.UnsupportedOperationException: Unknown URI: content://media/external_primary/images/media
-        val item = resolver.insert(collection, values)!!
-
+        resolver.insert(collection, values)!!
 
         val stream: OutputStream = FileOutputStream(file)
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
@@ -93,7 +92,11 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @Throws(IOException::class)
-    private fun saveAfterAndroidQ(bitmap: Bitmap) {
+    private fun saveOnApi29OrNewer(bitmap: Bitmap) {
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            error("This function is meant to be used by Android Q or newer.")
+        }
+
         // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "testdayo2.png")
