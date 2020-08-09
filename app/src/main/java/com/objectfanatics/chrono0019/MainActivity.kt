@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import permissions.dispatcher.NeedsPermission
@@ -59,10 +60,16 @@ class MainActivity : AppCompatActivity() {
 
         val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-        val uri = resolver.insert(collection, values)
-        println("uri = $uri")
+        val item = resolver.insert(collection, values)
+
+        if (item == null) {
+            // FIXME: lambda 受け取って失敗時の処理やりましょう。
+            Toast.makeText(this, "item is null", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         FileOutputStream(file).use {
+            // FIXME: これって JPEG でいいのか？ ライブラリとしては固定はダメだよね。
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
             it.flush()
         }
@@ -86,7 +93,14 @@ class MainActivity : AppCompatActivity() {
 
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
-        val item = resolver.insert(collection, values)!!
+        val item = resolver.insert(collection, values)
+
+        if (item == null) {
+            // FIXME: lambda 受け取って失敗時の処理やりましょう。
+            Toast.makeText(this, "item is null", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         resolver.openFileDescriptor(item, "w", null).use {
             FileOutputStream(it!!.fileDescriptor).use { outputStream ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
