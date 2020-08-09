@@ -2,13 +2,13 @@ package com.objectfanatics.chrono0019
 
 import android.Manifest
 import android.content.ContentValues
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
+import android.os.Environment.DIRECTORY_PICTURES
+import android.os.Environment.getExternalStoragePublicDirectory
 import android.provider.MediaStore
 import android.view.View
 import android.widget.Toast
@@ -43,12 +43,11 @@ class MainActivity : AppCompatActivity() {
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     fun saveOnApi28OrOlder(bitmap: Bitmap, relativePath: String = "Pictures") {
-        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            error("This function is meant to be used by Android P or older.")
-        }
+        assertApi28OrOlder()
         // FIXME: これより上は一次精査完了。
 
-        val file = createImageFileForMinimo(this)!!
+        // FIXME: 現状だと ext と圧縮方式が個別に設定できるのでよくない。現状では保存と compress が混ざってるので設計レベルで考えたほうがいい。
+        val file = createExternalStorageFileOnApi28OrOlder(DIRECTORY_PICTURES, "jpg", "Minimo")
 
         // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
         val values = ContentValues().apply {
@@ -130,21 +129,31 @@ class MainActivity : AppCompatActivity() {
 }
 
 
+// FIXME: これより下は精査済み ---------------------------------------------------------------------------
 @Throws(IOException::class)
-fun createImageFileForMinimo(context: Context): File? {
-    val defaultImageFileName = createDefaultImageFileName("jpg")
+fun createExternalStorageFileOnApi28OrOlder(
+    type: String = DIRECTORY_PICTURES,
+    ext: String,
+    relativePath: String? = null
+): File {
+    assertApi28OrOlder()
 
     // Deprecated in API level 29
     @Suppress("DEPRECATION")
-    val storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+    val externalStoragePublicDirectoryAbsolutePath = getExternalStoragePublicDirectory(type).absolutePath
 
-    val dir = File(storageDir.absolutePath + "/Minimo")
-    dir.mkdir()
-    // TODO: #5658: ここで『java.io.IOException: Permission denied』が出る。
-    return File(dir.absolutePath, defaultImageFileName)
+    val targetDir = File(
+        when (relativePath) {
+            null -> externalStoragePublicDirectoryAbsolutePath
+            else -> "$externalStoragePublicDirectoryAbsolutePath/$relativePath"
+        }
+    )
+
+    targetDir.mkdirs()
+
+    return File(targetDir.absolutePath, createDefaultImageFileName(ext))
 }
 
-// FIXME: これより下は精査済み
 fun createDefaultImageFileName(ext: String): String =
     "IMG_${createDefaultTimestampString()}.$ext"
 
@@ -154,3 +163,9 @@ fun createDefaultImageFileName(ext: String): String =
 fun createDefaultTimestampString(): String =
     // FIXME: これって desugar して DateTimeFormatter 使いたいですよね。
     SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+
+private fun assertApi28OrOlder() {
+    if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        error("This function is meant to be used by Android P or older.")
+    }
+}
