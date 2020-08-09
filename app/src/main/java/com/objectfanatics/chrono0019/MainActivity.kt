@@ -36,17 +36,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun save(bitmap: Bitmap) {
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap)
-            else -> saveOnApi28OrOlder(bitmap)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer( bitmap, "Pictures/Minimo")
+            else -> saveOnApi28OrOlder(bitmap, "Pictures/Minimo")
         }
     }
-    // FIXME: これより上は一次精査完了。
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    fun saveOnApi28OrOlder(bitmap: Bitmap) {
+    fun saveOnApi28OrOlder(bitmap: Bitmap, relativePath: String = "Pictures") {
         if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             error("This function is meant to be used by Android P or older.")
         }
+        // FIXME: これより上は一次精査完了。
 
         val file = createImageFileForMinimo(this)!!
 
@@ -77,14 +77,17 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @Throws(IOException::class)
-    private fun saveOnApi29OrNewer(bitmap: Bitmap) {
+    /**
+     * @param relativePath starts with "DCIM" or "Pictures"
+     */
+    private fun saveOnApi29OrNewer(bitmap: Bitmap, relativePath: String = "Pictures") {
         if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             error("This function is meant to be used by Android Q or newer.")
         }
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, getImageFileName())
-            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Minimo")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
