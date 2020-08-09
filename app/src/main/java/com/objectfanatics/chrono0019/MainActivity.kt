@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
 
         val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
 
-        // FIXME: これより上は一次精査完了。
+        // FIXME: これより上は一次精査完了 -----------------------------------------------------------------------
         if (item == null) {
             // FIXME: lambda 受け取って失敗時の処理やりましょう。
             //        細かい原因を解析してもしょうがないので、単純にエラー時という一種類だけ対応すればいいと思われ。
