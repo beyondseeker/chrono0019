@@ -59,6 +59,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getBitmapFromDrawable(drawable: Drawable): Bitmap {
+        val bmp = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bmp)
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight())
+        drawable.draw(canvas)
+        return bmp
+    }
+
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     fun saveOnApi28OrOlder(
         bitmap: Bitmap,
@@ -74,40 +86,35 @@ class MainActivity : AppCompatActivity() {
     ) {
         assertApi28OrOlder()
 
-        val file = createExternalStorageFileOnApi28OrOlder(standardDirectory, compressFormat.extension, subDirectory)
+        val saveAsync: () -> Unit = {
+            val file = createExternalStorageFileOnApi28OrOlder(
+                standardDirectory,
+                compressFormat.extension,
+                subDirectory
+            )
 
-        @Suppress("DEPRECATION")
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
-            put(MediaStore.Images.Media.DATA, file.absolutePath)
-        }
+            @Suppress("DEPRECATION")
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
+                put(MediaStore.Images.Media.DATA, file.absolutePath)
+            }
 
-        val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
+            val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
 
-        if (item == null) {
-            doOnEvent.run()
-            doOnError.run()
-            return
-        }
-
-        Thread(Runnable {
-            try {
+            if (item == null) {
+                doOnEvent.run()
+                doOnError.run()
+            } else {
                 FileOutputStream(file).use { os ->
                     bitmap.compress(compressFormat, quality, os)
                     os.flush()
                 }
-            } catch (e: IOException) {
-                runOnUiThread {
-                    doOnEvent.run()
-                    doOnError.run()
-                }
             }
-            runOnUiThread {
-                doOnEvent.run()
-                doOnSuccess.run()
-            }
-        }).start()
+        }
+
+        execute(saveAsync, doOnSuccess, doOnError, doOnEvent)
     }
+
     // FIXME: これより上は一次精査完了 -----------------------------------------------------------------------
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -126,25 +133,31 @@ class MainActivity : AppCompatActivity() {
     ) {
         assertApi29OrNewer()
 
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, createDefaultImageFileName(compressFormat.extension))
-            put(MediaStore.Images.Media.RELATIVE_PATH, getRelativePath(standardDirectory, subDirectory))
-            put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
+        val saveAsync: () -> Unit = {
+            val values = ContentValues().apply {
+                put(
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    createDefaultImageFileName(compressFormat.extension)
+                )
+                put(
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    getRelativePath(standardDirectory, subDirectory)
+                )
+                put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
 
-        val externalContentUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val externalContentUri =
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
-        val item = contentResolver.insert(externalContentUri, values)
+            val item = contentResolver.insert(externalContentUri, values)
 
-        if (item == null) {
-            doOnEvent.run()
-            doOnError.run()
-            return
-        }
-
-        Thread(Runnable {
-            try {
+            if (item == null) {
+                runOnUiThread {
+                    doOnEvent.run()
+                    doOnError.run()
+                }
+            } else {
                 contentResolver.openFileDescriptor(item, "w", null).use {
                     FileOutputStream(it!!.fileDescriptor).use { outputStream ->
                         bitmap.compress(compressFormat, quality, outputStream)
@@ -154,7 +167,22 @@ class MainActivity : AppCompatActivity() {
                 values.clear()
                 values.put(MediaStore.Images.Media.IS_PENDING, 0)
                 contentResolver.update(item, values, null, null)
-                Thread.sleep(2000)
+            }
+        }
+
+        execute(saveAsync, doOnSuccess, doOnError, doOnEvent)
+    }
+
+    // FIXME: これより下は精査済み ---------------------------------------------------------------------------
+    private fun execute(
+        save: () -> Unit,
+        doOnSuccess: Runnable,
+        doOnError: Runnable,
+        doOnEvent: Runnable
+    ) {
+        Thread(Runnable {
+            try {
+                save()
             } catch (e: IOException) {
                 runOnUiThread {
                     doOnEvent.run()
@@ -167,28 +195,8 @@ class MainActivity : AppCompatActivity() {
             }
         }).start()
     }
-
-    private fun assertApi29OrNewer() {
-        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            error("This function is meant to be used by Android Q or newer.")
-        }
-    }
-
-    private fun getBitmapFromDrawable(drawable: Drawable): Bitmap {
-        val bmp = Bitmap.createBitmap(
-            drawable.intrinsicWidth,
-            drawable.intrinsicHeight,
-            Bitmap.Config.ARGB_8888
-        )
-        val canvas = Canvas(bmp)
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight())
-        drawable.draw(canvas)
-        return bmp
-    }
 }
 
-
-// FIXME: これより下は精査済み ---------------------------------------------------------------------------
 @Throws(IOException::class)
 fun createExternalStorageFileOnApi28OrOlder(
     standardDirectory: String = DIRECTORY_PICTURES,
@@ -227,6 +235,12 @@ fun createDefaultTimestampString(): String =
 private fun assertApi28OrOlder() {
     if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         error("This function is meant to be used by Android P or older.")
+    }
+}
+
+private fun assertApi29OrNewer() {
+    if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        error("This function is meant to be used by Android Q or newer.")
     }
 }
 
