@@ -26,10 +26,13 @@ import java.util.*
 
 @RuntimePermissions
 class MainActivity : AppCompatActivity() {
+    private lateinit var saveAndroidIconButton: View
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        findViewById<View>(R.id.save_android_icon_button).setOnClickListener(this::onSaveAndroidIconButtonClick)
+        saveAndroidIconButton = findViewById<View>(R.id.save_android_icon_button)
+        saveAndroidIconButton.setOnClickListener(this::onSaveAndroidIconButtonClick)
     }
 
     private fun onSaveAndroidIconButtonClick(v: View) {
@@ -37,12 +40,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun save(bitmap: Bitmap) {
+        saveAndroidIconButton.isEnabled = false
+
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap, "Pictures/Minimo")
             else -> saveOnApi28OrOlder(
                 bitmap = bitmap,
                 relativePath = "chrono0019",
-                doOnError = Runnable { Toast.makeText(this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT).show() }
+                doOnError = Runnable { Toast.makeText( this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT ).show() },
+                doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
             )
         }
     }
@@ -72,27 +78,31 @@ class MainActivity : AppCompatActivity() {
 
         val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
 
-        // FIXME: これより上は一次精査完了 -----------------------------------------------------------------------
-        // FIXME: IOは非同期で処理して結果はMainThreadで返す必要がある。
         if (item == null) {
             doOnEvent.run()
             doOnError.run()
             return
         }
 
-        try {
-            FileOutputStream(file).use { os ->
-                bitmap.compress(compressFormat, quality, os)
-                os.flush()
+        Thread(Runnable {
+            try {
+                FileOutputStream(file).use { os ->
+                    bitmap.compress(compressFormat, quality, os)
+                    os.flush()
+                }
+            } catch (e: IOException) {
+                runOnUiThread {
+                    doOnEvent.run()
+                    doOnError.run()
+                }
             }
-        } catch (e: IOException) {
-            doOnEvent.run()
-            doOnError.run()
-        }
-
-        doOnEvent.run()
-        doOnSuccess.run()
+            runOnUiThread {
+                doOnEvent.run()
+                doOnSuccess.run()
+            }
+        }).start()
     }
+    // FIXME: これより上は一次精査完了 -----------------------------------------------------------------------
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @Throws(IOException::class)
