@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun save(bitmap: Bitmap) {
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer( bitmap, "Pictures/Minimo")
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap, "Pictures/Minimo")
             else -> saveOnApi28OrOlder(bitmap, "Pictures/Minimo")
         }
     }
@@ -86,9 +86,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, getImageFileName())
+            put(MediaStore.Images.Media.DISPLAY_NAME, createDefaultImageFileName("jpg"))
             put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpg")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
 
@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
 
         resolver.openFileDescriptor(item, "w", null).use {
             FileOutputStream(it!!.fileDescriptor).use { outputStream ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
                 outputStream.flush()
             }
         }
@@ -132,21 +132,25 @@ class MainActivity : AppCompatActivity() {
 
 @Throws(IOException::class)
 fun createImageFileForMinimo(context: Context): File? {
-    val imageFileName = getImageFileName()
+    val defaultImageFileName = createDefaultImageFileName("jpg")
 
-    // FIXME: これは Deprecated
-    val storageDir =
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-    //        File storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+    // Deprecated in API level 29
+    @Suppress("DEPRECATION")
+    val storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+
     val dir = File(storageDir.absolutePath + "/Minimo")
     dir.mkdir()
     // TODO: #5658: ここで『java.io.IOException: Permission denied』が出る。
-    return File(dir.absolutePath, imageFileName)
+    return File(dir.absolutePath, defaultImageFileName)
 }
 
-private fun getImageFileName(): String {
-    // Create an image file name
-    val timeStamp =
-        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return "IMG_$timeStamp.jpg"
-}
+// FIXME: これより下は精査済み
+fun createDefaultImageFileName(ext: String): String =
+    "IMG_${createDefaultTimestampString()}.$ext"
+
+/**
+ * 端末の現在時刻を用いた "yyyyMMdd_HHmmss" フォーマットのタイムスタンプ文字列を返します。
+ */
+fun createDefaultTimestampString(): String =
+    // FIXME: これって desugar して DateTimeFormatter 使いたいですよね。
+    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
