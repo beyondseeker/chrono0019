@@ -18,7 +18,6 @@ import permissions.dispatcher.RuntimePermissions
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -56,8 +55,6 @@ class MainActivity : AppCompatActivity() {
         // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            // API 29 から deprecated。このメソッドは API 28 以前専用なので OK。
-            // https://developer.android.com/reference/kotlin/android/provider/MediaStore.MediaColumns#data
             put(MediaStore.Images.Media.DATA, file.absolutePath)
         }
 
@@ -67,27 +64,10 @@ class MainActivity : AppCompatActivity() {
 
         resolver.insert(collection, values)!!
 
-        val stream: OutputStream = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-        stream.flush()
-        stream.close()
-
-
-//        resolver.openFileDescriptor(item, "w", null).use {
-//            // Write data into the pending audio file.
-//            // FIXME: disk full とかで IO例外出得るよね。でも、IO例外が出る裏付けがないんだよな、、、。
-//            //        ということで、とりあえず例外処理しないでおくけど、ちゃんと考えましょう。
-//            FileOutputStream(it!!.fileDescriptor).use { outputStream ->
-//                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-//            }
-//        }
-
-//        // FIXME: 排他制御の停止だと思われ。
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//            values.clear()
-//            values.put(MediaStore.Audio.Media.IS_PENDING, 0)
-//            resolver.update(item, values, null, null)
-//        }
+        FileOutputStream(file).use {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
+            it.flush()
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -97,9 +77,9 @@ class MainActivity : AppCompatActivity() {
             error("This function is meant to be used by Android Q or newer.")
         }
 
-        // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "testdayo2.png")
+            put(MediaStore.Images.Media.DISPLAY_NAME, getImageFileName())
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Minimo")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
@@ -110,11 +90,9 @@ class MainActivity : AppCompatActivity() {
 
         val item = resolver.insert(collection, values)!!
         resolver.openFileDescriptor(item, "w", null).use {
-            // Write data into the pending audio file.
-            // FIXME: disk full とかで IO例外出得るよね。でも、IO例外が出る裏付けがないんだよな、、、。
-            //        ということで、とりあえず例外処理しないでおくけど、ちゃんと考えましょう。
             FileOutputStream(it!!.fileDescriptor).use { outputStream ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                outputStream.flush()
             }
         }
 
@@ -139,10 +117,8 @@ class MainActivity : AppCompatActivity() {
 
 @Throws(IOException::class)
 fun createImageFileForMinimo(context: Context): File? {
-    // Create an image file name
-    val timeStamp =
-        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    val imageFileName = "IMG_$timeStamp.jpg"
+    val imageFileName = getImageFileName()
+
     // FIXME: これは Deprecated
     val storageDir =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
@@ -151,4 +127,11 @@ fun createImageFileForMinimo(context: Context): File? {
     dir.mkdir()
     // TODO: #5658: ここで『java.io.IOException: Permission denied』が出る。
     return File(dir.absolutePath, imageFileName)
+}
+
+private fun getImageFileName(): String {
+    // Create an image file name
+    val timeStamp =
+        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    return "IMG_$timeStamp.jpg"
 }
