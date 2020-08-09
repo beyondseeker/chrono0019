@@ -1,4 +1,4 @@
-package com.objectfanatics.chrono0018
+package com.objectfanatics.chrono0019
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.objectfanatics.chrono0018", appContext.packageName)
+        assertEquals("com.objectfanatics.chrono0019", appContext.packageName)
     }
 }

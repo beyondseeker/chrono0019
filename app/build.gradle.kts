@@ -8,7 +8,7 @@ android {
     compileSdkVersion(29)
 
     defaultConfig {
-        applicationId = "com.objectfanatics.chrono0018"
+        applicationId = "com.objectfanatics.chrono0019"
         minSdkVersion(23)
         targetSdkVersion(29)
         versionCode = 1
