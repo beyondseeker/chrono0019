@@ -43,10 +43,16 @@ class MainActivity : AppCompatActivity() {
         saveAndroidIconButton.isEnabled = false
 
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap, "Pictures/Minimo")
+            // FIXME: 同じ引数仕様にするので、引数オブジェクト作って使いまわしたほうがいいと思われる。
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(
+                bitmap = bitmap,
+                subDirectory = "chrono0019",
+                doOnError = Runnable { Toast.makeText( this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT ).show() },
+                doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
+            )
             else -> saveOnApi28OrOlder(
                 bitmap = bitmap,
-                relativePath = "chrono0019",
+                subDirectory = "chrono0019",
                 doOnError = Runnable { Toast.makeText( this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT ).show() },
                 doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
             )
@@ -58,8 +64,8 @@ class MainActivity : AppCompatActivity() {
         bitmap: Bitmap,
         compressFormat: CompressFormat = CompressFormat.PNG,
         quality: Int = 100,
-        type: String = DIRECTORY_PICTURES,
-        relativePath: String? = null,
+        standardDirectory: String = DIRECTORY_PICTURES,
+        subDirectory: String? = null,
         // () -> Unit にしたいのだが、PermissionDispatcher のバグがあるためワークアラウンドをしている。
         // https://github.com/permissions-dispatcher/PermissionsDispatcher/issues/503
         doOnSuccess: Runnable = Runnable { },
@@ -68,7 +74,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         assertApi28OrOlder()
 
-        val file = createExternalStorageFileOnApi28OrOlder(type, compressFormat.extension, relativePath)
+        val file = createExternalStorageFileOnApi28OrOlder(standardDirectory, compressFormat.extension, subDirectory)
 
         @Suppress("DEPRECATION")
         val values = ContentValues().apply {
@@ -106,43 +112,66 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @Throws(IOException::class)
-    /**
-     * @param relativePath starts with "DCIM" or "Pictures"
-     */
-    private fun saveOnApi29OrNewer(bitmap: Bitmap, relativePath: String = "Pictures") {
-        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            error("This function is meant to be used by Android Q or newer.")
-        }
+    private fun saveOnApi29OrNewer(
+        bitmap: Bitmap,
+        compressFormat: CompressFormat = CompressFormat.PNG,
+        quality: Int = 100,
+        standardDirectory: String = DIRECTORY_PICTURES,
+        subDirectory: String? = null,
+        // () -> Unit にしたいのだが、PermissionDispatcher のバグがあるためワークアラウンドをしている。
+        // https://github.com/permissions-dispatcher/PermissionsDispatcher/issues/503
+        doOnSuccess: Runnable = Runnable { },
+        doOnError: Runnable = Runnable { },
+        doOnEvent: Runnable = Runnable { }
+    ) {
+        assertApi29OrNewer()
 
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, createDefaultImageFileName("jpg"))
-            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpg")
+            put(MediaStore.Images.Media.DISPLAY_NAME, createDefaultImageFileName(compressFormat.extension))
+            put(MediaStore.Images.Media.RELATIVE_PATH, getRelativePath(standardDirectory, subDirectory))
+            put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
 
-        val resolver = contentResolver
+        val externalContentUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
-        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-
-        val item = resolver.insert(collection, values)
+        val item = contentResolver.insert(externalContentUri, values)
 
         if (item == null) {
-            // FIXME: lambda 受け取って失敗時の処理やりましょう。
-            Toast.makeText(this, "item is null", Toast.LENGTH_SHORT).show()
+            doOnEvent.run()
+            doOnError.run()
             return
         }
 
-        resolver.openFileDescriptor(item, "w", null).use {
-            FileOutputStream(it!!.fileDescriptor).use { outputStream ->
-                bitmap.compress(CompressFormat.JPEG, 100, outputStream)
-                outputStream.flush()
+        Thread(Runnable {
+            try {
+                contentResolver.openFileDescriptor(item, "w", null).use {
+                    FileOutputStream(it!!.fileDescriptor).use { outputStream ->
+                        bitmap.compress(compressFormat, quality, outputStream)
+                        outputStream.flush()
+                    }
+                }
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                contentResolver.update(item, values, null, null)
+                Thread.sleep(2000)
+            } catch (e: IOException) {
+                runOnUiThread {
+                    doOnEvent.run()
+                    doOnError.run()
+                }
             }
-        }
+            runOnUiThread {
+                doOnEvent.run()
+                doOnSuccess.run()
+            }
+        }).start()
+    }
 
-        values.clear()
-        values.put(MediaStore.Audio.Media.IS_PENDING, 0)
-        resolver.update(item, values, null, null)
+    private fun assertApi29OrNewer() {
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            error("This function is meant to be used by Android Q or newer.")
+        }
     }
 
     private fun getBitmapFromDrawable(drawable: Drawable): Bitmap {
@@ -162,7 +191,7 @@ class MainActivity : AppCompatActivity() {
 // FIXME: これより下は精査済み ---------------------------------------------------------------------------
 @Throws(IOException::class)
 fun createExternalStorageFileOnApi28OrOlder(
-    type: String = DIRECTORY_PICTURES,
+    standardDirectory: String = DIRECTORY_PICTURES,
     ext: String,
     relativePath: String? = null
 ): File {
@@ -171,7 +200,7 @@ fun createExternalStorageFileOnApi28OrOlder(
     // Deprecated in API level 29
     @Suppress("DEPRECATION")
     val externalStoragePublicDirectoryAbsolutePath =
-        getExternalStoragePublicDirectory(type).absolutePath
+        getExternalStoragePublicDirectory(standardDirectory).absolutePath
 
     val targetDir = File(
         when (relativePath) {
@@ -210,3 +239,9 @@ private val CompressFormat.extension: String
 
 private val CompressFormat.mimeType: String
     get() = "image/$extension"
+
+private fun getRelativePath(standardDirectory: String, subDirectory: String?): String =
+    when (subDirectory) {
+        null -> standardDirectory
+        else -> "$standardDirectory/$subDirectory"
+    }
