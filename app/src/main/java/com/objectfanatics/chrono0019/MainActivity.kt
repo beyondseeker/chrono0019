@@ -3,6 +3,7 @@ package com.objectfanatics.chrono0019
 import android.Manifest
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.os.Environment.DIRECTORY_PICTURES
 import android.os.Environment.getExternalStoragePublicDirectory
 import android.provider.MediaStore
+import android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 import android.view.View
 import android.widget.Toast
 import androidx.annotation.RequiresApi
@@ -37,40 +39,43 @@ class MainActivity : AppCompatActivity() {
     private fun save(bitmap: Bitmap) {
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveOnApi29OrNewer(bitmap, "Pictures/Minimo")
-            else -> saveOnApi28OrOlder(bitmap, "Pictures/Minimo")
+            else -> saveOnApi28OrOlder(bitmap = bitmap, relativePath = "chrono0019")
         }
     }
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    fun saveOnApi28OrOlder(bitmap: Bitmap, relativePath: String = "Pictures") {
+    fun saveOnApi28OrOlder(
+        bitmap: Bitmap,
+        compressFormat: CompressFormat = CompressFormat.PNG,
+        quality: Int = 100,
+        type: String = DIRECTORY_PICTURES,
+        relativePath: String? = null
+    ) {
         assertApi28OrOlder()
-        // FIXME: これより上は一次精査完了。
 
-        // FIXME: 現状だと ext と圧縮方式が個別に設定できるのでよくない。現状では保存と compress が混ざってるので設計レベルで考えたほうがいい。
-        val file = createExternalStorageFileOnApi28OrOlder(DIRECTORY_PICTURES, "jpg", "Minimo")
+        val file = createExternalStorageFileOnApi28OrOlder(type, compressFormat.extension, relativePath)
 
-        // FIXME: たぶん、MediaStore 系の、item の属性情報だと思われる。
+        @Suppress("DEPRECATION")
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
             put(MediaStore.Images.Media.DATA, file.absolutePath)
         }
 
-        val resolver = contentResolver
+        val item = contentResolver.insert(EXTERNAL_CONTENT_URI, values)
 
-        val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-        val item = resolver.insert(collection, values)
-
+        // FIXME: これより上は一次精査完了。
         if (item == null) {
             // FIXME: lambda 受け取って失敗時の処理やりましょう。
+            //        細かい原因を解析してもしょうがないので、単純にエラー時という一種類だけ対応すればいいと思われ。
             Toast.makeText(this, "item is null", Toast.LENGTH_SHORT).show()
             return
         }
 
-        FileOutputStream(file).use {
-            // FIXME: これって JPEG でいいのか？ ライブラリとしては固定はダメだよね。
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
-            it.flush()
+        // FIXME: lambda 受け取って失敗時の処理やりましょう。
+        //        細かい原因を解析してもしょうがないので、単純にエラー時という一種類だけ対応すればいいと思われ。
+        FileOutputStream(file).use { os ->
+            bitmap.compress(compressFormat, quality, os)
+            os.flush()
         }
     }
 
@@ -105,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 
         resolver.openFileDescriptor(item, "w", null).use {
             FileOutputStream(it!!.fileDescriptor).use { outputStream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+                bitmap.compress(CompressFormat.JPEG, 100, outputStream)
                 outputStream.flush()
             }
         }
@@ -140,7 +145,8 @@ fun createExternalStorageFileOnApi28OrOlder(
 
     // Deprecated in API level 29
     @Suppress("DEPRECATION")
-    val externalStoragePublicDirectoryAbsolutePath = getExternalStoragePublicDirectory(type).absolutePath
+    val externalStoragePublicDirectoryAbsolutePath =
+        getExternalStoragePublicDirectory(type).absolutePath
 
     val targetDir = File(
         when (relativePath) {
@@ -169,3 +175,13 @@ private fun assertApi28OrOlder() {
         error("This function is meant to be used by Android P or older.")
     }
 }
+
+private val CompressFormat.extension: String
+    get() = when (this) {
+        CompressFormat.JPEG -> "jpg"
+        CompressFormat.PNG -> "png"
+        CompressFormat.WEBP -> "webp"
+    }
+
+private val CompressFormat.mimeType: String
+    get() = "image/$extension"
