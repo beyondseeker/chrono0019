@@ -10,7 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.widget.ImageView
+import android.view.View
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import permissions.dispatcher.NeedsPermission
@@ -26,15 +26,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        findViewById<View>(R.id.save_android_icon_button).setOnClickListener(this::onSaveAndroidIconButtonClick)
+    }
 
-        val iconImageView = findViewById<ImageView>(R.id.icon_image_view)
-
-//        val bitmap = (iconImageView.drawable as AdaptiveIconDrawable).bitmap
-        val bitmap = getBitmapFromDrawable(getDrawable(R.mipmap.ic_launcher)!!)
-
-        save(bitmap)
-
-        println("bitmap = $bitmap")
+    private fun onSaveAndroidIconButtonClick(v: View) {
+        save(getBitmapFromDrawable(getDrawable(R.mipmap.ic_launcher)!!))
     }
 
     private fun save(bitmap: Bitmap) {
@@ -43,6 +39,7 @@ class MainActivity : AppCompatActivity() {
             else -> saveOnApi28OrOlder(bitmap)
         }
     }
+    // FIXME: これより上は一次精査完了。
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     fun saveOnApi28OrOlder(bitmap: Bitmap) {
@@ -62,7 +59,8 @@ class MainActivity : AppCompatActivity() {
 
         val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-        resolver.insert(collection, values)!!
+        val uri = resolver.insert(collection, values)
+        println("uri = $uri")
 
         FileOutputStream(file).use {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
