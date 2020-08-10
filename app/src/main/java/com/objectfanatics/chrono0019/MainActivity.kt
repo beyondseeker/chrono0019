@@ -28,26 +28,32 @@ class MainActivity : AppCompatActivity() {
         saveAndroidIconButton.setOnClickListener(this::onSaveAndroidIconButtonClick)
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        onRequestPermissionsResult(requestCode, grantResults)
+    }
+
     private fun onSaveAndroidIconButtonClick(v: View) {
         saveImage(getBitmapFromDrawable(getDrawable(R.mipmap.ic_launcher)!!))
     }
 
     private fun saveImage(bitmap: Bitmap) {
-        saveAndroidIconButton.isEnabled = false
-
         val args = SaveImageArgs(
             bitmap = bitmap,
             compressFormat = CompressFormat.PNG,
             standardDirectory = DIRECTORY_PICTURES,
             subDirectory = "chrono0019",
-            doOnSuccess = Runnable { Toast.makeText( this, "保存しました", Toast.LENGTH_SHORT ).show() },
-            doOnError = Runnable { Toast.makeText( this, "エラーが発生しました", Toast.LENGTH_SHORT ).show() },
+            doOnSuccess = Runnable { Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show() },
+            doOnError = Runnable { Toast.makeText(this, "エラーが発生しました", Toast.LENGTH_SHORT).show() },
             doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
         )
 
         when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveImageOnApi29OrNewer(args)
-            else -> saveImageOnApi28OrOlderWrapper(args)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                saveAndroidIconButton.isEnabled = false
+                saveImageOnApi29OrNewer(args)
+            }
+            else -> saveImageOnApi28OrOlderWrapperWithPermissionCheck(args)
         }
     }
 
@@ -65,6 +71,7 @@ class MainActivity : AppCompatActivity() {
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     fun saveImageOnApi28OrOlderWrapper(args: SaveImageArgs) {
+        saveAndroidIconButton.isEnabled = false
         saveImageOnApi28OrOlder(args)
     }
 }
