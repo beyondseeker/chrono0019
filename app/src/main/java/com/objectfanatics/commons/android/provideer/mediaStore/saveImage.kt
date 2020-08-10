@@ -22,6 +22,7 @@ data class SaveImageArgs(
     val quality: Int = 100,
     val standardDirectory: String = Environment.DIRECTORY_PICTURES,
     val subDirectory: String? = null,
+    val fileName: String = createDefaultImageFileName(compressFormat.extension),
     // () -> Unit にしたいのだが、PermissionDispatcher のバグがあるためワークアラウンドをしている。
     // https://github.com/permissions-dispatcher/PermissionsDispatcher/issues/503
     val doOnSuccess: Runnable = Runnable { },
@@ -37,7 +38,7 @@ fun Context.saveImageOnApi29OrNewer(args: SaveImageArgs) {
 
         val saveAsync: () -> Unit = {
             val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, createDefaultImageFileName(compressFormat.extension))
+                put(MediaStore.Images.Media.DISPLAY_NAME, args.fileName)
                 put(MediaStore.Images.Media.RELATIVE_PATH, getRelativePath(standardDirectory, subDirectory))
                 put(MediaStore.Images.Media.MIME_TYPE, compressFormat.mimeType)
                 put(MediaStore.Images.Media.IS_PENDING, 1)
@@ -74,7 +75,7 @@ fun Context.saveImageOnApi28OrOlder(args: SaveImageArgs) {
         assertApi28OrOlder()
 
         val saveAsync: () -> Unit = {
-            val file = createExternalStorageFileOnApi28OrOlder(standardDirectory, compressFormat.extension, subDirectory)
+            val file = createExternalStorageFileOnApi28OrOlder(standardDirectory, args.fileName, subDirectory)
 
             // Deprecated in API level 29
             @Suppress("DEPRECATION")
@@ -137,7 +138,7 @@ private val Bitmap.CompressFormat.mimeType: String
 @Throws(IOException::class)
 private fun createExternalStorageFileOnApi28OrOlder(
     standardDirectory: String = Environment.DIRECTORY_PICTURES,
-    ext: String,
+    fileName: String,
     relativePath: String? = null
 ): File {
     assertApi28OrOlder()
@@ -156,7 +157,7 @@ private fun createExternalStorageFileOnApi28OrOlder(
 
     targetDir.mkdirs()
 
-    return File(targetDir.absolutePath, createDefaultImageFileName(ext))
+    return File(targetDir.absolutePath, fileName)
 }
 
 private fun getRelativePath(standardDirectory: String, subDirectory: String?): String =
