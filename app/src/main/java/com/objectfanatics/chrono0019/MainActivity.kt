@@ -11,8 +11,9 @@ import android.os.Environment.DIRECTORY_PICTURES
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.objectfanatics.commons.android.provideer.mediaStore.saveOnApi28OrOlder
-import com.objectfanatics.commons.android.provideer.mediaStore.saveOnApi29OrNewer
+import com.objectfanatics.commons.android.provideer.mediaStore.SaveImageArgs
+import com.objectfanatics.commons.android.provideer.mediaStore.saveImageOnApi28OrOlder
+import com.objectfanatics.commons.android.provideer.mediaStore.saveImageOnApi29OrNewer
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.RuntimePermissions
 
@@ -28,38 +29,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSaveAndroidIconButtonClick(v: View) {
-        save(getBitmapFromDrawable(getDrawable(R.mipmap.ic_launcher)!!))
+        saveImage(getBitmapFromDrawable(getDrawable(R.mipmap.ic_launcher)!!))
     }
 
-    private fun save(bitmap: Bitmap) {
+    private fun saveImage(bitmap: Bitmap) {
         saveAndroidIconButton.isEnabled = false
 
-        val doOnSuccess = Runnable { }
-        val doOnError = Runnable { Toast.makeText(this@MainActivity, "エラーが発生しました", Toast.LENGTH_SHORT).show() }
-        val doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
+        val args = SaveImageArgs(
+            bitmap = bitmap,
+            compressFormat = CompressFormat.PNG,
+            standardDirectory = DIRECTORY_PICTURES,
+            subDirectory = "chrono0019",
+            doOnSuccess = Runnable { Toast.makeText( this, "保存しました", Toast.LENGTH_SHORT ).show() },
+            doOnError = Runnable { Toast.makeText( this, "エラーが発生しました", Toast.LENGTH_SHORT ).show() },
+            doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
+        )
+
         when {
-            // FIXME: 同じ引数仕様にするので、引数オブジェクト作って使いまわしたほうがいいと思われる。
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
-                saveOnApi29OrNewer(
-                    bitmap = bitmap,
-                    compressFormat = CompressFormat.PNG,
-                    standardDirectory = DIRECTORY_PICTURES,
-                    subDirectory = "chrono0019",
-                    doOnSuccess = doOnSuccess,
-                    doOnError = doOnError,
-                    doOnEvent = doOnEvent
-                )
-            else ->
-                saveOnApi28OrOlderWrapper(
-                    bitmap = bitmap,
-                    compressFormat = CompressFormat.PNG,
-                    quality = 100,
-                    standardDirectory = DIRECTORY_PICTURES,
-                    subDirectory = "chrono0019",
-                    doOnSuccess = doOnSuccess,
-                    doOnError = doOnError,
-                    doOnEvent = doOnEvent
-                )
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> saveImageOnApi29OrNewer(args)
+            else -> saveImageOnApi28OrOlderWrapper(args)
         }
     }
 
@@ -76,7 +64,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     @NeedsPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-    fun saveOnApi28OrOlderWrapper(bitmap: Bitmap, compressFormat: CompressFormat, quality: Int, standardDirectory: String, subDirectory: String?, doOnSuccess: Runnable, doOnError: Runnable, doOnEvent: Runnable) {
-        saveOnApi28OrOlder(bitmap, compressFormat, quality, standardDirectory, subDirectory, doOnSuccess, doOnError, doOnEvent)
+    fun saveImageOnApi28OrOlderWrapper(args: SaveImageArgs) {
+        saveImageOnApi28OrOlder(args)
     }
 }
