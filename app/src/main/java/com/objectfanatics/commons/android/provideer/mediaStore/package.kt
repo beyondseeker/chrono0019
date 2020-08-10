@@ -1,6 +1,5 @@
-package com.objectfanatics.commons.android.provideer.mediastore
+package com.objectfanatics.commons.android.provideer.mediaStore
 
-import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -11,7 +10,6 @@ import android.os.Looper
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.objectfanatics.chrono0019.BuildConfig
-import permissions.dispatcher.NeedsPermission
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

@@ -11,8 +11,8 @@ import android.os.Environment.DIRECTORY_PICTURES
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.objectfanatics.commons.android.provideer.mediastore.saveOnApi28OrOlder
-import com.objectfanatics.commons.android.provideer.mediastore.saveOnApi29OrNewer
+import com.objectfanatics.commons.android.provideer.mediaStore.saveOnApi28OrOlder
+import com.objectfanatics.commons.android.provideer.mediaStore.saveOnApi29OrNewer
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.RuntimePermissions
 
