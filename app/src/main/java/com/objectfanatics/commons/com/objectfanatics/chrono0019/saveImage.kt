@@ -1,4 +1,4 @@
-package com.objectfanatics.commons.android.provideer.mediaStore
+package com.objectfanatics.commons.com.objectfanatics.chrono0019
 
 import android.content.ContentValues
 import android.content.Context

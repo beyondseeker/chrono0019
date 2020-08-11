@@ -11,9 +11,9 @@ import android.os.Environment.DIRECTORY_PICTURES
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.objectfanatics.commons.android.provideer.mediaStore.SaveImageArgs
-import com.objectfanatics.commons.android.provideer.mediaStore.saveImageOnApi28OrOlder
-import com.objectfanatics.commons.android.provideer.mediaStore.saveImageOnApi29OrNewer
+import com.objectfanatics.commons.com.objectfanatics.chrono0019.SaveImageArgs
+import com.objectfanatics.commons.com.objectfanatics.chrono0019.saveImageOnApi28OrOlder
+import com.objectfanatics.commons.com.objectfanatics.chrono0019.saveImageOnApi29OrNewer
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.RuntimePermissions
 
@@ -38,16 +38,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveImage(bitmap: Bitmap) {
-        runOnUiThread {  }
         val args = SaveImageArgs(
-            bitmap = bitmap,
-            compressFormat = CompressFormat.PNG,
-            standardDirectory = DIRECTORY_PICTURES,
-            subDirectory = "chrono0019",
-            doOnSuccess = Runnable { Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show() },
-            doOnError = Runnable { Toast.makeText(this, "エラーが発生しました", Toast.LENGTH_SHORT).show() },
-            doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
-        )
+                bitmap = bitmap,
+                compressFormat = CompressFormat.PNG,
+                standardDirectory = DIRECTORY_PICTURES,
+                subDirectory = "chrono0019",
+                doOnSuccess = Runnable { Toast.makeText(this, "保存しました", Toast.LENGTH_SHORT).show() },
+                doOnError = Runnable { Toast.makeText(this, "エラーが発生しました", Toast.LENGTH_SHORT).show() },
+                doOnEvent = Runnable { saveAndroidIconButton.isEnabled = true }
+            )
 
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
