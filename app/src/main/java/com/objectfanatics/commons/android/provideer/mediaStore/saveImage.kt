@@ -189,12 +189,12 @@ private fun execute(
 }
 
 private fun runOnMainThread(run: () -> Unit) {
-    if (!isUiThread) {
+    if (!isMainThread) {
         Handler(Looper.getMainLooper()).post { run() }
     } else {
         run()
     }
 }
 
-val isUiThread: Boolean
+val isMainThread: Boolean
     get() = Thread.currentThread() == Looper.getMainLooper().thread
