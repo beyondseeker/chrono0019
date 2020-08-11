@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveImage(bitmap: Bitmap) {
+        runOnUiThread {  }
         val args = SaveImageArgs(
             bitmap = bitmap,
             compressFormat = CompressFormat.PNG,
