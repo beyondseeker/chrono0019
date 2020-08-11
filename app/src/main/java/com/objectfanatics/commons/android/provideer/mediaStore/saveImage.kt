@@ -188,7 +188,7 @@ private fun execute(
     }).start()
 }
 
-private fun runOnMainThread(run: () -> Unit) {
+fun runOnMainThread(run: () -> Unit) {
     if (!isMainThread) {
         Handler(Looper.getMainLooper()).post { run() }
     } else {
