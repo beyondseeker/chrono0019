@@ -46,23 +46,35 @@ fun Context.saveImageOnApi29OrNewer(args: SaveImageArgs) {
 
             val externalContentUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
-            val item = contentResolver.insert(externalContentUri, values)
-
-            if (item == null) {
-                runOnMainThread {
-                    doOnEvent.run()
-                    doOnError.run()
-                }
-            } else {
-                contentResolver.openFileDescriptor(item, "w", null).use {
-                    FileOutputStream(it!!.fileDescriptor).use { outputStream ->
-                        bitmap.compress(compressFormat, quality, outputStream)
-                        outputStream.flush()
+            when (val item = contentResolver.insert(externalContentUri, values)) {
+                null -> {
+                    runOnMainThread {
+                        doOnEvent.run()
+                        doOnError.run()
                     }
                 }
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                contentResolver.update(item, values, null, null)
+                else -> {
+                    when (val fileDescriptor =
+                        contentResolver.openFileDescriptor(item, "w", null)) {
+                        null -> {
+                            runOnMainThread {
+                                doOnEvent.run()
+                                doOnError.run()
+                            }
+                        }
+                        else -> {
+                            fileDescriptor.use {
+                                FileOutputStream(it!!.fileDescriptor).use { outputStream ->
+                                    bitmap.compress(compressFormat, quality, outputStream)
+                                    outputStream.flush()
+                                }
+                            }
+                            values.clear()
+                            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                            contentResolver.update(item, values, null, null)
+                        }
+                    }
+                }
             }
         }
 
@@ -189,12 +201,9 @@ private fun execute(
 }
 
 fun runOnMainThread(run: () -> Unit) {
-    if (!isMainThread) {
-        Handler(Looper.getMainLooper()).post { run() }
-    } else {
-        run()
+    // TODO: code style
+    when {
+        isMainThread -> run()
+        else -> Handler(Looper.getMainLooper()).post { run() }
     }
 }
-
-val isMainThread: Boolean
-    get() = Thread.currentThread() == Looper.getMainLooper().thread
